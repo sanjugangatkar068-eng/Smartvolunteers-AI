@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session, flash
 import json
 import os
 from datetime import datetime
@@ -7,16 +7,20 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 app.secret_key = "smartvolunteers_secret_key_2024"
 
+# Use Render Disk for persistence
+DATA_FILE = "/data/data.json" if os.path.exists("/data") else "data.json"
+
 # ---------- Data Handling ----------
 def load_data():
     try:
-        if not os.path.exists("data.json"):
-            print("Creating new data.json")
+        if not os.path.exists(DATA_FILE):
+            print(f"Creating new {DATA_FILE}")
             default_data = {"volunteers": [], "tasks": [], "matches": []}
-            with open("data.json", "w") as f:
+            os.makedirs(os.path.dirname(DATA_FILE), exist_ok=True)
+            with open(DATA_FILE, "w") as f:
                 json.dump(default_data, f, indent=2)
             return default_data
-        with open("data.json", "r") as f:
+        with open(DATA_FILE, "r") as f:
             return json.load(f)
     except Exception as e:
         print(f"LOAD_DATA ERROR: {e}")
@@ -24,7 +28,8 @@ def load_data():
 
 def save_data(data):
     try:
-        with open("data.json", "w") as f:
+        os.makedirs(os.path.dirname(DATA_FILE), exist_ok=True)
+        with open(DATA_FILE, "w") as f:
             json.dump(data, f, indent=2)
         print("DATA SAVED SUCCESS")
     except Exception as e:
@@ -67,7 +72,7 @@ def login():
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "").strip()
-        print(f"LOGIN ATTEMPT: email='{email}' password='{password}'")
+        print(f"LOGIN ATTEMPT: email='{email}'")
         
         if password == "admin123" and email in ["admin", "admin@admin.com"]:
             print("ADMIN LOGIN SUCCESS")
@@ -129,6 +134,7 @@ def volunteer_signup():
         data["volunteers"].append(new_volunteer)
         save_data(data)
         print(f"SIGNUP SUCCESS: {email}")
+        flash(f"Signup successful for {email}! Please login.")
         return redirect(url_for("login"))
     except Exception as e:
         print(f"SIGNUP ERROR: {str(e)}")
@@ -150,7 +156,7 @@ def dashboard():
 
 @app.route("/create_task", methods=["POST"])
 def create_task():
-    if "user" not in session or session.get("role") != "admin":
+    if "user" not in session or session.get("role")!= "admin":
         return redirect(url_for("login"))
     data = load_data()
     new_task = {"id": f"t_{len(data['tasks']) + 1}", "title": request.form.get("task_name", "").strip(), "description": request.form.get("task_name", "").strip(), "skills_required": [s.strip() for s in request.form.get("skills", "").split(",") if s.strip()], "location": request.form.get("location", "").strip(), "priority": request.form.get("priority", "").strip(), "volunteers_needed": int(request.form.get("volunteers_needed", 1)), "deadline": request.form.get("deadline", "").strip(), "status": "open"}
@@ -160,15 +166,16 @@ def create_task():
 
 @app.route("/load_demo", methods=["POST"])
 def load_demo():
-    if "user" not in session or session.get("role") != "admin":
+    if "user" not in session or session.get("role")!= "admin":
         return redirect(url_for("login"))
     demo_data = {"volunteers": [{"id": "v_1", "name": "Priya Sharma", "email": "priya@example.com", "password_hash": generate_password_hash("pass123"), "skills": ["environment", "driving", "hindi"], "location": "Bengaluru", "availability": "flexible", "languages": ["English", "Hindi"]}, {"id": "v_2", "name": "Rahul Verma", "email": "rahul@example.com", "password_hash": generate_password_hash("pass123"), "skills": ["teaching", "english", "hindi"], "location": "Bengaluru", "availability": "weekends", "languages": ["English", "Hindi"]}, {"id": "v_3", "name": "Alex Kumar", "email": "alex@example.com", "password_hash": generate_password_hash("pass123"), "skills": ["logistics", "management", "english"], "location": "Bengaluru", "availability": "flexible", "languages": ["English"]}], "tasks": [{"id": "t_1", "title": "Beach Cleanup Drive", "description": "Clean up city beach", "skills_required": ["environment", "driving"], "location": "Bengaluru", "priority": "High", "volunteers_needed": 10, "deadline": "2025-12-31", "status": "open"}, {"id": "t_2", "title": "Food Drive Distribution", "description": "Distribute food packets", "skills_required": ["logistics", "management"], "location": "Bengaluru", "priority": "Medium", "volunteers_needed": 5, "deadline": "2025-12-25", "status": "open"}, {"id": "t_3", "title": "Teaching Assistant", "description": "Help teach kids", "skills_required": ["teaching", "hindi"], "location": "Bengaluru", "priority": "Medium", "volunteers_needed": 3, "deadline": "2025-12-20", "status": "open"}], "matches": []}
     save_data(demo_data)
+    flash("Demo data loaded successfully!")
     return redirect(url_for("dashboard"))
 
 @app.route("/run_match", methods=["POST"])
 def run_match():
-    if "user" not in session or session.get("role") != "admin":
+    if "user" not in session or session.get("role")!= "admin":
         return redirect(url_for("login"))
     data = load_data()
     matches = []
@@ -191,6 +198,7 @@ def run_match():
             matches.append({"task_id": task.get("id", "unknown"), "task_title": task.get("title", "Untitled Task"), "volunteer_id": best_match.get("id", "unknown"), "volunteer_name": best_match.get("name", "Unknown"), "match_score": best_score, "reason": best_reason})
     data["matches"] = matches
     save_data(data)
+    flash(f"AI matching complete! Found {len(matches)} matches.")
     return redirect(url_for("dashboard"))
 
 @app.route("/export_csv")
