@@ -44,7 +44,15 @@ def calculate_match_score(volunteer, task):
     
     return min(round(score), 100), ", ".join(reasons)
 
-# ---------- Routes ----------
+   @app.route('/setup')
+   def setup():
+       from app import db, User
+       if not User.query.filter_by(email='admin').first():
+           db.session.add(User(email='admin', password='admin123', role='admin'))
+           db.session.commit()
+           return "Admin created. Login: admin / admin123"
+       return "Admin already exists"
+       
 @app.route("/")
 def home():
     return redirect(url_for("login"))
