@@ -24,31 +24,31 @@
     <div class="login-container">
         <h1>SmartVolunteers</h1>
         <p class="subtitle">AI-Powered Volunteer Matching</p>
-        
+
         {% if error %}
         <div class="error">{{ error }}</div>
         {% endif %}
-        
+
         {% with messages = get_flashed_messages() %}
           {% if messages %}
             <div class="success">{{ messages[0] }}</div>
           {% endif %}
         {% endwith %}
-        
+
         <form method="POST">
             <label for="email">Email or Username</label>
             <input type="text" id="email" name="email" placeholder="admin@admin.com" required>
-            
+
             <label for="password">Password</label>
             <input type="password" id="password" name="password" placeholder="Enter password" required>
-            
+
             <button type="submit">Login</button>
         </form>
-        
+
         <div class="links">
             <p>New volunteer? <a href="{{ url_for('volunteer_signup_page') }}">Sign up as a Volunteer →</a></p>
         </div>
-        
+
         <div class="demo-info">
             Admin: admin@admin.com / admin123
         </div>
