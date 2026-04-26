@@ -1,62 +1,66 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SmartVolunteers - Volunteer Signup</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f5f5f5; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 1rem; }
+        .signup-container { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); width: 100%; max-width: 500px; }
+        h1 { text-align: center; color: #333; margin-bottom: 1.5rem; }
+        .error { background: #fee; color: #c33; padding: 0.75rem; border-radius: 4px; margin-bottom: 1rem; border: 1px solid #fcc; }
+        label { display: block; margin-bottom: 0.5rem; color: #333; font-weight: bold; }
+        input, select { width: 100%; padding: 0.75rem; margin-bottom: 1rem; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; font-size: 1rem; }
+        button { width: 100%; padding: 0.75rem; background: #16a34a; color: white; border: none; border-radius: 4px; font-size: 1rem; cursor: pointer; font-weight: bold; }
+        button:hover { background: #15803d; }
+        .links { text-align: center; margin-top: 1rem; }
+        .links a { color: #2563eb; text-decoration: none; }
+        small { color: #666; font-size: 0.85rem; }
+    </style>
 </head>
-<body class="bg-gray-100">
-    <div class="flex min-h-screen items-center justify-center py-8">
-        <div class="w-full max-w-md bg-white rounded-lg shadow-md p-8">
-            <div class="text-center mb-6">
-                <div class="mx-auto h-16 w-16 bg-green-600 rounded-full flex items-center justify-center">
-                    <span class="text-white text-2xl font-bold">SV</span>
-                </div>
-                <h2 class="mt-4 text-2xl font-bold text-gray-900">Volunteer Signup</h2>
-                <p class="text-gray-600">Join SmartVolunteers</p>
-            </div>
-            {% if error %}
-            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">{{ error }}</div>
-            {% endif %}
-            <form method="POST" action="/volunteer_signup">
-                <div class="mb-3">
-                    <label class="block text-gray-700 text-sm font-bold mb-1">Full Name</label>
-                    <input name="name" type="text" required class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="Priya Sharma">
-                </div>
-                <div class="mb-3">
-                    <label class="block text-gray-700 text-sm font-bold mb-1">Email</label>
-                    <input name="email" type="email" required class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="priya@example.com">
-                </div>
-                <div class="mb-3">
-                    <label class="block text-gray-700 text-sm font-bold mb-1">Password</label>
-                    <input name="password" type="password" required class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="Create password">
-                </div>
-                <div class="mb-3">
-                    <label class="block text-gray-700 text-sm font-bold mb-1">Skills</label>
-                    <input name="skills" type="text" required class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="teaching, hindi, environment">
-                    <p class="text-xs text-gray-500 mt-1">Separate with commas</p>
-                </div>
-                <div class="mb-3">
-                    <label class="block text-gray-700 text-sm font-bold mb-1">Location</label>
-                    <input name="location" type="text" required class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="Bengaluru">
-                </div>
-                <div class="mb-3">
-                    <label class="block text-gray-700 text-sm font-bold mb-1">Availability</label>
-                    <select name="availability" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
-                        <option value="flexible">Flexible</option>
-                        <option value="weekends">Weekends Only</option>
-                        <option value="weekdays">Weekdays Only</option>
-                    </select>
-                </div>
-                <div class="mb-4">
-                    <label class="block text-gray-700 text-sm font-bold mb-1">Languages</label>
-                    <input name="languages" type="text" required class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="English, Hindi">
-                    <p class="text-xs text-gray-500 mt-1">Separate with commas</p>
-                </div>
-                <button type="submit" class="w-full bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700">Sign Up as Volunteer</button>
-            </form>
-            <div class="mt-6 text-center">
-                <a href="/login" class="text-blue-600 hover:text-blue-800 text-sm">← Back to Login</a>
-            </div>
+<body>
+    <div class="signup-container">
+        <h1>Volunteer Signup</h1>
+        
+        {% if error %}
+        <div class="error">{{ error }}</div>
+        {% endif %}
+        
+        <form method="POST" action="{{ url_for('volunteer_signup') }}">
+            <label for="name">Full Name</label>
+            <input type="text" id="name" name="name" placeholder="John Doe" required>
+            
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" placeholder="john@example.com" required>
+            
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" placeholder="Create a password" required>
+            
+            <label for="skills">Skills</label>
+            <input type="text" id="skills" name="skills" placeholder="teaching, driving, cooking" required>
+            <small>Separate multiple skills with commas</small>
+            
+            <label for="location">Location</label>
+            <input type="text" id="location" name="location" placeholder="Bengaluru" required>
+            
+            <label for="availability">Availability</label>
+            <select id="availability" name="availability" required>
+                <option value="">Select availability</option>
+                <option value="flexible">Flexible</option>
+                <option value="weekends">Weekends only</option>
+                <option value="weekdays">Weekdays only</option>
+                <option value="evenings">Evenings only</option>
+            </select>
+            
+            <label for="languages">Languages</label>
+            <input type="text" id="languages" name="languages" placeholder="English, Hindi" required>
+            <small>Separate multiple languages with commas</small>
+            
+            <button type="submit">Sign Up as Volunteer</button>
+        </form>
+        
+        <div class="links">
+            <p>Already have an account? <a href="{{ url_for('login') }}">Login →</a></p>
         </div>
     </div>
 </body>
