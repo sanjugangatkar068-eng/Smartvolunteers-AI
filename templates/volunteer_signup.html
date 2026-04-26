@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SmartVolunteers - Volunteer Signup</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100">
+    <div class="flex min-h-screen items-center justify-center py-8">
+        <div class="w-full max-w-md bg-white rounded-lg shadow-md p-8">
+            <div class="text-center mb-6">
+                <div class="mx-auto h-16 w-16 bg-green-600 rounded-full flex items-center justify-center">
+                    <span class="text-white text-2xl font-bold">SV</span>
+                </div>
+                <h2 class="mt-4 text-2xl font-bold text-gray-900">Volunteer Signup</h2>
+                <p class="text-gray-600">Join SmartVolunteers</p>
+            </div>
+            {% if error %}
+            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">{{ error }}</div>
+            {% endif %}
+            <form method="POST" action="/volunteer_signup">
+                <div class="mb-3">
+                    <label class="block text-gray-700 text-sm font-bold mb-1">Full Name</label>
+                    <input name="name" type="text" required class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="Priya Sharma">
+                </div>
+                <div class="mb-3">
+                    <label class="block text-gray-700 text-sm font-bold mb-1">Email</label>
+                    <input name="email" type="email" required class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="priya@example.com">
+                </div>
+                <div class="mb-3">
+                    <label class="block text-gray-700 text-sm font-bold mb-1">Password</label>
+                    <input name="password" type="password" required class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="Create password">
+                </div>
+                <div class="mb-3">
+                    <label class="block text-gray-700 text-sm font-bold mb-1">Skills</label>
+                    <input name="skills" type="text" required class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="teaching, hindi, environment">
+                    <p class="text-xs text-gray-500 mt-1">Separate with commas</p>
+                </div>
+                <div class="mb-3">
+                    <label class="block text-gray-700 text-sm font-bold mb-1">Location</label>
+                    <input name="location" type="text" required class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="Bengaluru">
+                </div>
+                <div class="mb-3">
+                    <label class="block text-gray-700 text-sm font-bold mb-1">Availability</label>
+                    <select name="availability" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                        <option value="flexible">Flexible</option>
+                        <option value="weekends">Weekends Only</option>
+                        <option value="weekdays">Weekdays Only</option>
+                    </select>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-gray-700 text-sm font-bold mb-1">Languages</label>
+                    <input name="languages" type="text" required class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="English, Hindi">
+                    <p class="text-xs text-gray-500 mt-1">Separate with commas</p>
+                </div>
+                <button type="submit" class="w-full bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700">Sign Up as Volunteer</button>
+            </form>
+            <div class="mt-6 text-center">
+                <a href="/login" class="text-blue-600 hover:text-blue-800 text-sm">← Back to Login</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
