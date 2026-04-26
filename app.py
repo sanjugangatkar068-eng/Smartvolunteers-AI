@@ -51,15 +51,15 @@ def home():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        email = request.form.get("email", "").strip()
+        email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "").strip()
         
         print(f"LOGIN ATTEMPT: email='{email}' password='{password}'")
         
         data = load_data()
         
-        # Admin check - strips spaces to prevent login fail
-        if email == "admin" and password == "admin123":
+        # Admin check - accepts admin OR admin@admin.com
+        if email in ["admin", "admin@admin.com"] and password == "admin123":
             print("ADMIN LOGIN SUCCESS")
             session["user"] = "admin"
             session["role"] = "admin"
@@ -68,7 +68,7 @@ def login():
         
         # Volunteer check
         for volunteer in data["volunteers"]:
-            if volunteer["email"] == email:
+            if volunteer["email"].lower() == email:
                 if check_password_hash(volunteer.get("password_hash", ""), password):
                     print(f"VOLUNTEER LOGIN SUCCESS: {volunteer['name']}")
                     session["user"] = volunteer["id"]
@@ -93,10 +93,10 @@ def volunteer_signup_page():
 @app.route("/volunteer_signup", methods=["POST"])
 def volunteer_signup():
     data = load_data()
-    email = request.form.get("email", "").strip()
+    email = request.form.get("email", "").strip().lower()
     
     for v in data["volunteers"]:
-        if v["email"] == email:
+        if v["email"].lower() == email:
             return render_template("volunteer_signup.html", error="Email already registered")
     
     new_volunteer = {
