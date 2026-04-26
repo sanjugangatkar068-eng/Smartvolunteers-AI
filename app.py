@@ -7,7 +7,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 app.secret_key = "smartvolunteers_secret_key_2024"
 
-# Use Render Disk for persistence
+# Use Render Disk for persistence. Falls back to local file for testing
 DATA_FILE = "/data/data.json" if os.path.exists("/data") else "data.json"
 
 # ---------- Data Handling ----------
@@ -73,14 +73,14 @@ def login():
         email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "").strip()
         print(f"LOGIN ATTEMPT: email='{email}'")
-        
+
         if password == "admin123" and email in ["admin", "admin@admin.com"]:
             print("ADMIN LOGIN SUCCESS")
             session["user"] = "admin"
-            session["role"] = "admin" 
+            session["role"] = "admin"
             session["name"] = "Admin"
             return redirect(url_for("dashboard"))
-        
+
         data = load_data()
         for volunteer in data["volunteers"]:
             if volunteer["email"].lower() == email:
@@ -88,9 +88,10 @@ def login():
                     session["user"] = volunteer["id"]
                     session["role"] = "volunteer"
                     session["name"] = volunteer["name"]
+                    print(f"VOLUNTEER LOGIN SUCCESS: {email}")
                     return redirect(url_for("dashboard"))
                 break
-        
+
         return render_template("login.html", error="Invalid email or password")
     return render_template("login.html")
 
@@ -110,17 +111,16 @@ def volunteer_signup():
         email = request.form.get("email", "").strip().lower()
         name = request.form.get("name", "").strip()
         password = request.form.get("password", "")
-        
+
         print(f"SIGNUP ATTEMPT: name={name}, email={email}")
-        
+
         if not email or not name or not password:
-            return render_template("volunteer_signup.html", error="Name, email and password are required")
-        
+            return render_template("volunteer_signup.html", error="All fields are required")
+
         for v in data["volunteers"]:
             if v["email"].lower() == email:
-                print(f"SIGNUP FAILED: Email {email} already exists")
                 return render_template("volunteer_signup.html", error="Email already registered")
-        
+
         new_volunteer = {
             "id": f"v_{len(data['volunteers']) + 1}",
             "name": name,
@@ -133,9 +133,14 @@ def volunteer_signup():
         }
         data["volunteers"].append(new_volunteer)
         save_data(data)
-        print(f"SIGNUP SUCCESS: {email}")
-        flash(f"Signup successful for {email}! Please login.")
-        return redirect(url_for("login"))
+
+        # Auto-login the new volunteer
+        session["user"] = new_volunteer["id"]
+        session["role"] = "volunteer"
+        session["name"] = new_volunteer["name"]
+        print(f"SIGNUP + AUTO LOGIN: {email}")
+        return redirect(url_for("dashboard"))
+
     except Exception as e:
         print(f"SIGNUP ERROR: {str(e)}")
         return render_template("volunteer_signup.html", error=f"Signup failed: {str(e)}")
@@ -162,6 +167,7 @@ def create_task():
     new_task = {"id": f"t_{len(data['tasks']) + 1}", "title": request.form.get("task_name", "").strip(), "description": request.form.get("task_name", "").strip(), "skills_required": [s.strip() for s in request.form.get("skills", "").split(",") if s.strip()], "location": request.form.get("location", "").strip(), "priority": request.form.get("priority", "").strip(), "volunteers_needed": int(request.form.get("volunteers_needed", 1)), "deadline": request.form.get("deadline", "").strip(), "status": "open"}
     data["tasks"].append(new_task)
     save_data(data)
+    flash("Task created successfully!")
     return redirect(url_for("dashboard"))
 
 @app.route("/load_demo", methods=["POST"])
@@ -179,11 +185,6 @@ def run_match():
         return redirect(url_for("login"))
     data = load_data()
     matches = []
-    for i, task in enumerate(data["tasks"]):
-        if "id" not in task: task["id"] = f"t_{i+1}"
-        if "title" not in task: task["title"] = task.get("task_name", "Untitled Task")
-    for i, volunteer in enumerate(data["volunteers"]):
-        if "id" not in volunteer: volunteer["id"] = f"v_{i+1}"
     for task in data["tasks"]:
         best_match = None
         best_score = 0
