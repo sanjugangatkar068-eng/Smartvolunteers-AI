@@ -51,12 +51,16 @@ def home():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        email = request.form.get("email")
-        password = request.form.get("password")
+        email = request.form.get("email", "").strip()
+        password = request.form.get("password", "").strip()
+        
+        print(f"LOGIN ATTEMPT: email='{email}' password='{password}'")
+        
         data = load_data()
         
-        # Admin check - THIS ALREADY WORKS
+        # Admin check - strips spaces to prevent login fail
         if email == "admin" and password == "admin123":
+            print("ADMIN LOGIN SUCCESS")
             session["user"] = "admin"
             session["role"] = "admin"
             session["name"] = "Admin"
@@ -66,12 +70,14 @@ def login():
         for volunteer in data["volunteers"]:
             if volunteer["email"] == email:
                 if check_password_hash(volunteer.get("password_hash", ""), password):
+                    print(f"VOLUNTEER LOGIN SUCCESS: {volunteer['name']}")
                     session["user"] = volunteer["id"]
                     session["role"] = "volunteer"
                     session["name"] = volunteer["name"]
                     return redirect(url_for("dashboard"))
                 break
         
+        print("LOGIN FAILED")
         return render_template("login.html", error="Invalid email or password")
     return render_template("login.html")
 
@@ -87,7 +93,7 @@ def volunteer_signup_page():
 @app.route("/volunteer_signup", methods=["POST"])
 def volunteer_signup():
     data = load_data()
-    email = request.form.get("email")
+    email = request.form.get("email", "").strip()
     
     for v in data["volunteers"]:
         if v["email"] == email:
@@ -95,12 +101,12 @@ def volunteer_signup():
     
     new_volunteer = {
         "id": f"v_{len(data['volunteers']) + 1}",
-        "name": request.form.get("name"),
+        "name": request.form.get("name", "").strip(),
         "email": email,
-        "password_hash": generate_password_hash(request.form.get("password")),
+        "password_hash": generate_password_hash(request.form.get("password", "")),
         "skills": [s.strip() for s in request.form.get("skills", "").split(",") if s.strip()],
-        "location": request.form.get("location"),
-        "availability": request.form.get("availability"),
+        "location": request.form.get("location", "").strip(),
+        "availability": request.form.get("availability", "").strip(),
         "languages": [l.strip() for l in request.form.get("languages", "").split(",") if l.strip()]
     }
     data["volunteers"].append(new_volunteer)
@@ -141,13 +147,13 @@ def create_task():
     data = load_data()
     new_task = {
         "id": f"t_{len(data['tasks']) + 1}",
-        "title": request.form.get("task_name"),
-        "description": request.form.get("task_name"),
+        "title": request.form.get("task_name", "").strip(),
+        "description": request.form.get("task_name", "").strip(),
         "skills_required": [s.strip() for s in request.form.get("skills", "").split(",") if s.strip()],
-        "location": request.form.get("location"),
-        "priority": request.form.get("priority"),
+        "location": request.form.get("location", "").strip(),
+        "priority": request.form.get("priority", "").strip(),
         "volunteers_needed": int(request.form.get("volunteers_needed", 1)),
-        "deadline": request.form.get("deadline"),
+        "deadline": request.form.get("deadline", "").strip(),
         "status": "open"
     }
     data["tasks"].append(new_task)
