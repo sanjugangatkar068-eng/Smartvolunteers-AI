@@ -1,79 +1,48 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>SmartVolunteers - My Dashboard</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-</head>
-<body class="bg-gray-100">
-    <nav class="bg-green-600 text-white p-4">
-        <div class="container mx-auto flex justify-between items-center">
-            <h1 class="text-2xl font-bold">SmartVolunteers</h1>
-            <div>
-                <span class="mr-4">Welcome, {{ user_name }}</span>
-                <a href="/logout" class="bg-green-800 px-4 py-2 rounded hover:bg-green-900">Logout</a>
-            </div>
-        </div>
-    </nav>
+{% extends "base.html" %}
+{% block content %}
+<h2 class="mb-4"><i class="fas fa-user"></i> Volunteer Dashboard</h2>
 
-    <div class="container mx-auto p-6">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div class="bg-white p-6 rounded-lg shadow">
-                <h3 class="text-gray-500 text-sm">Available Tasks</h3>
-                <p class="text-3xl font-bold text-blue-600">{{ stats.total_tasks }}</p>
-            </div>
-            <div class="bg-white p-6 rounded-lg shadow">
-                <h3 class="text-gray-500 text-sm">My AI Matches</h3>
-                <p class="text-3xl font-bold text-green-600">{{ stats.my_matches }}</p>
-            </div>
-            <div class="bg-white p-6 rounded-lg shadow">
-                <h3 class="text-gray-500 text-sm">Role</h3>
-                <p class="text-3xl font-bold text-purple-600">Volunteer</p>
-            </div>
-        </div>
-
-        <div class="bg-white p-6 rounded-lg shadow mb-6">
-            <h2 class="text-xl font-bold mb-4">Task Locations</h2>
-            <div id="map" style="height: 400px;" class="rounded-lg"></div>
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div class="bg-white p-6 rounded-lg shadow">
-                <h2 class="text-xl font-bold mb-4">Available Tasks</h2>
-                {% if tasks %}
-                    {% for task in tasks %}
-                    <div class="border-b py-3">
-                        <h3 class="font-bold">{{ task.title }}</h3>
-                        <p class="text-sm text-gray-600">Skills: {{ task.skills_required | join(', ') }}</p>
-                        <p class="text-sm text-gray-600">Location: {{ task.location }} | Priority: {{ task.priority }}</p>
+<div class="card mb-4">
+    <div class="card-header bg-success text-white"><h5><i class="fas fa-check-circle"></i> My AI Matches</h5></div>
+    <div class="card-body">
+        {% if matches %}
+            {% for match in matches %}
+            <div class="alert alert-success">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5>{{ match.task_name }}</h5>
+                        <p class="mb-1"><strong>Match Score:</strong> {{ match.match_score }}% | <strong>Why:</strong> {{ match.reasons }}</p>
+                        <small class="text-muted">Status: {{ match.status }}</small>
                     </div>
-                    {% endfor %}
-                {% else %}
-                    <p class="text-gray-500">No tasks available yet.</p>
-                {% endif %}
+                    <div><span class="badge bg-primary fs-6">{{ match.match_score }}%</span></div>
+                </div>
             </div>
-
-            <div class="bg-white p-6 rounded-lg shadow">
-                <h2 class="text-xl font-bold mb-4">Your AI Matches</h2>
-                {% if matches %}
-                    {% for match in matches %}
-                    <div class="border-b py-3 bg-green-50 p-3 rounded">
-                        <h3 class="font-bold text-green-700">{{ match.task_title }}</h3>
-                        <p class="text-sm">Match Score: <span class="font-bold">{{ match.match_score }}%</span></p>
-                        <p class="text-xs text-gray-600">{{ match.reason }}</p>
-                    </div>
-                    {% endfor %}
-                {% else %}
-                    <p class="text-gray-500">No matches yet. Admin will run AI matching soon.</p>
-                {% endif %}
-            </div>
-        </div>
+            {% endfor %}
+        {% else %}
+            <p class="text-muted">No matches yet. The admin will run AI matching soon!</p>
+        {% endif %}
     </div>
+</div>
 
-    <script>
-        var map = L.map('map').setView([12.9716, 77.5946], 12);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    </script>
-</body>
-</html>
+<div class="card">
+    <div class="card-header"><h5><i class="fas fa-list"></i> Available Tasks</h5></div>
+    <div class="card-body">
+        {% if tasks %}
+            {% for task in tasks %}
+            <div class="border-bottom pb-3 mb-3">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5>{{ task.task_name }}</h5>
+                        <p class="mb-1"><strong>Skills:</strong> {{ task.skills_required | join(', ') }}</p>
+                        <small class="text-muted"><i class="fas fa-map-marker-alt"></i> {{ task.location }} | <i class="fas fa-users"></i> {{ task.volunteers_needed }} needed | <i class="fas fa-calendar"></i> {{ task.deadline }}</small>
+                    </div>
+                    <span class="badge bg-{{ 'danger' if task.priority == 'High' else 'warning' if task.priority == 'Medium' else 'secondary' }} h-50">{{ task.priority }}</span>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p class="text-muted">No open tasks right now.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
