@@ -1,177 +1,144 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SmartVolunteers - Admin Dashboard</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <style>
-        body { font-family: Arial, sans-serif; margin: 0; background: #f5f5f5; color: #333; }
-       .navbar { background: #2563eb; color: white; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; }
-       .navbar h1 { margin: 0; font-size: 1.5rem; }
-       .navbar a { color: white; text-decoration: none; background: #1d4ed8; padding: 0.5rem 1rem; border-radius: 4px; }
-       .container { max-width: 1200px; margin: 2rem auto; padding: 0 1rem; }
-       .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
-       .stat-card { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); text-align: center; }
-       .stat-card h3 { margin: 0; font-size: 2rem; color: #16a34a; }
-       .stat-card p { margin: 0.5rem 0 0; color: #666; }
-       .card { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 2rem; }
-       .card h2 { margin-top: 0; }
-       .btn { padding: 0.75rem 1.5rem; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-right: 0.5rem; text-decoration: none; display: inline-block; }
-       .btn-primary { background: #2563eb; color: white; }
-       .btn-secondary { background: #dc2626; color: white; }
-       .btn-success { background: #16a34a; color: white; }
-        #map { height: 250px; width: 100%; border-radius: 8px; margin-top: 1rem; }
-       .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #ddd; }
-        th { background: #f8f9fa; }
-       .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
-       .modal-content { background: white; margin: 5% auto; padding: 2rem; border-radius: 8px; width: 90%; max-width: 500px; position: relative; }
-       .close { position: absolute; right: 1rem; top: 1rem; font-size: 1.5rem; cursor: pointer; }
-        label { display: block; margin: 1rem 0 0.5rem; font-weight: bold; }
-        input, select { width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
-       .flash { background: #dcfce7; color: #166534; padding: 0.75rem; border-radius: 4px; margin-bottom: 1rem; border: 1px solid #bbf7d0; }
-        @media (max-width: 768px) {.grid { grid-template-columns: 1fr; } }
-    </style>
-</head>
-<body>
-    <div class="navbar">
-        <h1>SmartVolunteers - Admin</h1>
-        <div>
-            <span>Welcome, {{ user_name }}</span>
-            <a href="{{ url_for('logout') }}">Logout</a>
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-tachometer-alt"></i> Admin Dashboard</h2>
+    <div>
+        <a href="{{ url_for('load_demo') }}" class="btn btn-secondary"><i class="fas fa-database"></i> Load Demo Data</a>
+        <a href="{{ url_for('run_ai_match') }}" class="btn btn-warning"><i class="fas fa-robot"></i> Run AI Match</a>
+        <a href="{{ url_for('export_matches') }}" class="btn btn-success"><i class="fas fa-download"></i> Export CSV</a>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card stat-card text-white bg-primary">
+            <div class="card-body">
+                <h5>Total Volunteers</h5>
+                <h2>{{ stats.total_volunteers }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card text-white bg-info">
+            <div class="card-body">
+                <h5>Total Tasks</h5>
+                <h2>{{ stats.total_tasks }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card text-white bg-warning">
+            <div class="card-body">
+                <h5>Active Matches</h5>
+                <h2>{{ stats.active_matches }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card text-white bg-success">
+            <div class="card-body">
+                <h5>Total Matches</h5>
+                <h2>{{ stats.total_matches }}</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header"><h5><i class="fas fa-plus"></i> Create New Task</h5></div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('create_task') }}">
+                    <div class="mb-3">
+                        <label class="form-label">Task Name</label>
+                        <input type="text" class="form-control" name="task_name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Skills Required (comma separated)</label>
+                        <input type="text" class="form-control" name="skills_required" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Location</label>
+                            <input type="text" class="form-control" name="location" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Priority</label>
+                            <select class="form-select" name="priority">
+                                <option value="High">High</option>
+                                <option value="Medium">Medium</option>
+                                <option value="Low">Low</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Volunteers Needed</label>
+                            <input type="number" class="form-control" name="volunteers_needed" value="1" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Deadline</label>
+                            <input type="date" class="form-control" name="deadline" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Create Task</button>
+                </form>
+            </div>
         </div>
     </div>
 
-    <div class="container">
-        {% with messages = get_flashed_messages() %}
-          {% if messages %}
-            <div class="flash">{{ messages[0] }}</div>
-          {% endif %}
-        {% endwith %}
-
-        <div class="stats">
-            <div class="stat-card">
-                <h3>{{ stats.total_volunteers }}</h3>
-                <p>Total Volunteers</p>
-            </div>
-            <div class="stat-card">
-                <h3>{{ stats.total_tasks }}</h3>
-                <p>Total Tasks Created</p>
-            </div>
-            <div class="stat-card">
-                <h3>{{ stats.active_matches }}</h3>
-                <p>Active Matches</p>
-            </div>
-        </div>
-
+    <div class="col-md-6">
         <div class="card">
-            <h2>Admin Controls</h2>
-            <button class="btn btn-primary" onclick="openModal()">+ Create Task</button>
-            <form method="POST" action="{{ url_for('load_demo') }}" style="display: inline;">
-                <button type="submit" class="btn btn-secondary">Load Demo Data</button>
-            </form>
-            <form method="POST" action="{{ url_for('run_match') }}" style="display: inline;">
-                <button type="submit" class="btn btn-success">🤖 Run AI Match</button>
-            </form>
-        </div>
-
-        <div class="card">
-            <h2>Task Locations</h2>
-            <div id="map"></div>
-        </div>
-
-        <div class="grid">
-            <div class="card">
-                <h2>All Tasks</h2>
+            <div class="card-header"><h5><i class="fas fa-tasks"></i> Recent Tasks</h5></div>
+            <div class="card-body" style="max-height: 400px; overflow-y: auto;">
                 {% if tasks %}
-                <table>
-                    <thead>
-                        <tr><th>Title</th><th>Location</th><th>Priority</th></tr>
-                    </thead>
-                    <tbody>
-                        {% for task in tasks %}
-                        <tr>
-                            <td>{{ task.title }}</td>
-                            <td>{{ task.location }}</td>
-                            <td>{{ task.priority }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+                    {% for task in tasks[-5:] %}
+                    <div class="border-bottom pb-2 mb-2">
+                        <strong>{{ task.task_name }}</strong>
+                        <span class="badge bg-{{ 'danger' if task.priority == 'High' else 'warning' if task.priority == 'Medium' else 'secondary' }} float-end">{{ task.priority }}</span>
+                        <br><small class="text-muted">{{ task.location }} | Needs {{ task.volunteers_needed }} volunteers</small>
+                    </div>
+                    {% endfor %}
                 {% else %}
-                <p>No tasks yet. Load demo data or create one.</p>
-                {% endif %}
-            </div>
-
-            <div class="card">
-                <h2>All AI Matches</h2>
-                {% if matches %}
-                <table>
-                    <thead>
-                        <tr><th>Task</th><th>Volunteer</th><th>Score</th></tr>
-                    </thead>
-                    <tbody>
-                        {% for match in matches %}
-                        <tr>
-                            <td>{{ match.task_title }}</td>
-                            <td>{{ match.volunteer_name }}</td>
-                            <td>{{ match.match_score }}%</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-                <a href="{{ url_for('export_csv') }}" class="btn btn-primary" style="margin-top: 1rem;">Export CSV</a>
-                {% else %}
-                <p>Click "Run AI Match" to see matches.</p>
+                    <p class="text-muted">No tasks yet. Click "Load Demo Data" to add sample tasks.</p>
                 {% endif %}
             </div>
         </div>
     </div>
+</div>
 
-    <div id="taskModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal()">&times;</span>
-            <h2>Create New Task</h2>
-            <form method="POST" action="{{ url_for('create_task') }}">
-                <label for="task_name">Task Name</label>
-                <input type="text" id="task_name" name="task_name" required>
-                <label for="skills">Skills Needed</label>
-                <input type="text" id="skills" name="skills" placeholder="cleaning, driving" required>
-                <label for="location">Location</label>
-                <input type="text" id="location" name="location" placeholder="Bengaluru" required>
-                <label for="priority">Priority</label>
-                <select id="priority" name="priority" required>
-                    <option value="High">High</option>
-                    <option value="Medium">Medium</option>
-                    <option value="Low">Low</option>
-                </select>
-                <label for="volunteers_needed">Volunteers Needed</label>
-                <input type="number" id="volunteers_needed" name="volunteers_needed" value="1" min="1" required>
-                <label for="deadline">Deadline</label>
-                <input type="date" id="deadline" name="deadline" required>
-                <button type="submit" class="btn btn-primary" style="margin-top: 1rem;">Create Task</button>
-            </form>
+<div class="card mt-4">
+    <div class="card-header"><h5><i class="fas fa-star"></i> AI Match Results</h5></div>
+    <div class="card-body">
+        {% if matches %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Task</th>
+                        <th>Volunteer</th>
+                        <th>Score</th>
+                        <th>Reasons</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for match in matches[:10] %}
+                    <tr>
+                        <td>{{ match.task_name }}</td>
+                        <td>{{ match.volunteer_name }}<br><small>{{ match.volunteer_email }}</small></td>
+                        <td><span class="badge bg-success">{{ match.match_score }}%</span></td>
+                        <td><small>{{ match.reasons }}</small></td>
+                        <td><span class="badge bg-warning">{{ match.status }}</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
-    </div>
-
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script>
-        var map = L.map('map').setView([12.9716, 77.5946], 11);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-        {% for task in tasks %}
-        {% if task.location == 'Bengaluru' %}
-        L.marker([12.9716, 77.5946]).addTo(map).bindPopup('{{ task.title }}');
+        {% else %}
+        <p class="text-muted">No matches yet. Click "Run AI Match" after loading demo data.</p>
         {% endif %}
-        {% endfor %}
-        function openModal() { document.getElementById('taskModal').style.display = 'block'; }
-        function closeModal() { document.getElementById('taskModal').style.display = 'none'; }
-        window.onclick = function(event) {
-            if (event.target == document.getElementById('taskModal')) {
-                closeModal();
-            }
-        }
-    </script>
-</body>
-</html>
+    </div>
+</div>
+{% endblock %}
