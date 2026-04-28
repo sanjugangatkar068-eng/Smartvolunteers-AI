@@ -9,7 +9,6 @@ from io import StringIO
 app = Flask(__name__)
 app.secret_key = "smartvolunteers_secret_key_2024"
 
-# Render Free Tier - saves in project folder. Data resets on deploy/sleep.
 DATA_FILE = "data.json"
 
 def load_data():
@@ -47,19 +46,15 @@ def ai_match_volunteers():
 
     for task in tasks:
         task_skills = set(skill.lower().strip() for skill in task["skills_required"])
-
         for volunteer in volunteers:
             vol_skills = set(skill.lower().strip() for skill in volunteer["skills"])
-
-            # Calculate match score
             skill_match = len(task_skills & vol_skills) / len(task_skills) if task_skills else 0
             location_match = 1.0 if volunteer["location"].lower() == task["location"].lower() else 0.3
             availability_match = 1.0 if volunteer["availability"] == "Flexible" else 0.7
             priority_bonus = 0.2 if task["priority"] == "High" else 0.1
-
             total_score = (skill_match * 0.5 + location_match * 0.3 + availability_match * 0.1 + priority_bonus) * 100
 
-            if total_score > 30: # Only match if >30%
+            if total_score > 30:
                 reasons = []
                 if skill_match > 0:
                     reasons.append(f"{len(task_skills & vol_skills)} matching skills")
@@ -87,15 +82,19 @@ def ai_match_volunteers():
 
 @app.route('/')
 def home():
-    if 'user' not in session:
+    if 'user' not in session or not isinstance(session.get('user'), dict):
+        session.pop('user', None)
         return redirect(url_for('login'))
-    if session['user']['role'] == 'admin':
+    if session['user'].get('role') == 'admin':
         return redirect(url_for('admin_dashboard'))
     else:
         return redirect(url_for('volunteer_dashboard'))
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    if 'user' in session and not isinstance(session.get('user'), dict):
+        session.pop('user', None)
+
     if request.method == 'POST':
         email = request.form['email']
         password = request.form['password']
@@ -124,14 +123,12 @@ def volunteer_signup():
             flash('Email already registered', 'error')
             return render_template('volunteer_signup.html')
 
-        # Create user account
         data["users"][email] = {
             "password": generate_password_hash(request.form['password']),
             "role": "volunteer",
             "name": request.form['name']
         }
 
-        # Create volunteer profile
         volunteer = {
             "id": len(data["volunteers"]) + 1,
             "name": request.form['name'],
@@ -143,7 +140,6 @@ def volunteer_signup():
         data["volunteers"].append(volunteer)
         save_data(data)
 
-        # Auto login
         session['user'] = {"email": email, "role": "volunteer", "name": request.form['name']}
         flash('Signup successful! Welcome to SmartVolunteers', 'success')
         return redirect(url_for('volunteer_dashboard'))
@@ -152,7 +148,7 @@ def volunteer_signup():
 
 @app.route('/admin')
 def admin_dashboard():
-    if 'user' not in session or session['user']['role']!= 'admin':
+    if 'user' not in session or not isinstance(session.get('user'), dict) or session['user'].get('role')!= 'admin':
         return redirect(url_for('login'))
 
     data = load_data()
@@ -166,25 +162,19 @@ def admin_dashboard():
 
 @app.route('/volunteer_dashboard')
 def volunteer_dashboard():
-    if 'user' not in session or session['user']['role']!= 'volunteer':
+    if 'user' not in session or not isinstance(session.get('user'), dict) or session['user'].get('role')!= 'volunteer':
         return redirect(url_for('login'))
 
     data = load_data()
     user_email = session['user']['email']
-
-    # Get volunteer's matches
     my_matches = [m for m in data["matches"] if m["volunteer_email"] == user_email]
-    # Get all open tasks
     open_tasks = [t for t in data["tasks"] if t["volunteers_needed"] > 0]
 
-    return render_template('volunteer_dashboard.html',
-                         matches=my_matches,
-                         tasks=open_tasks,
-                         user=session['user'])
+    return render_template('volunteer_dashboard.html', matches=my_matches, tasks=open_tasks, user=session['user'])
 
 @app.route('/create_task', methods=['POST'])
 def create_task():
-    if 'user' not in session or session['user']['role']!= 'admin':
+    if 'user' not in session or not isinstance(session.get('user'), dict) or session['user'].get('role')!= 'admin':
         return redirect(url_for('login'))
 
     data = load_data()
@@ -205,7 +195,7 @@ def create_task():
 
 @app.route('/run_ai_match')
 def run_ai_match():
-    if 'user' not in session or session['user']['role']!= 'admin':
+    if 'user' not in session or not isinstance(session.get('user'), dict) or session['user'].get('role')!= 'admin':
         return redirect(url_for('login'))
 
     count = ai_match_volunteers()
@@ -214,26 +204,21 @@ def run_ai_match():
 
 @app.route('/load_demo')
 def load_demo():
-    if 'user' not in session or session['user']['role']!= 'admin':
+    if 'user' not in session or not isinstance(session.get('user'), dict) or session['user'].get('role')!= 'admin':
         return redirect(url_for('login'))
 
     data = load_data()
-
-    # Demo volunteers
     demo_volunteers = [
         {"name": "Priya Sharma", "email": "priya@example.com", "skills": ["teaching", "communication", "hindi"], "location": "Bengaluru", "availability": "Flexible"},
         {"name": "Rahul Kumar", "email": "rahul@example.com", "skills": ["coding", "python", "web development"], "location": "Bengaluru", "availability": "Weekends"},
         {"name": "Anjali Patel", "email": "anjali@example.com", "skills": ["design", "photoshop", "social media"], "location": "Mumbai", "availability": "Flexible"}
     ]
-
-    # Demo tasks
     demo_tasks = [
         {"task_name": "Teach English to Kids", "skills_required": ["teaching", "communication"], "location": "Bengaluru", "priority": "High", "volunteers_needed": 2, "deadline": (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d')},
         {"task_name": "Build NGO Website", "skills_required": ["coding", "web development"], "location": "Bengaluru", "priority": "Medium", "volunteers_needed": 1, "deadline": (datetime.now() + timedelta(days=45)).strftime('%Y-%m-%d')},
         {"task_name": "Social Media Campaign", "skills_required": ["design", "social media"], "location": "Mumbai", "priority": "High", "volunteers_needed": 1, "deadline": (datetime.now() + timedelta(days=20)).strftime('%Y-%m-%d')}
     ]
 
-    # Add demo data if not exists
     for vol in demo_volunteers:
         if not any(v["email"] == vol["email"] for v in data["volunteers"]):
             vol["id"] = len(data["volunteers"]) + 1
@@ -245,7 +230,7 @@ def load_demo():
             }
 
     for task in demo_tasks:
-        if not any(t["task_name"] == task["task_name"] for t in data["tasks"]): # Fixed this line
+        if not any(t["task_name"] == task["task_name"] for t in data["tasks"]):
             task["id"] = len(data["tasks"]) + 1
             task["created_at"] = datetime.now().isoformat()
             data["tasks"].append(task)
@@ -256,29 +241,16 @@ def load_demo():
 
 @app.route('/export_matches')
 def export_matches():
-    if 'user' not in session or session['user']['role']!= 'admin':
+    if 'user' not in session or not isinstance(session.get('user'), dict) or session['user'].get('role')!= 'admin':
         return redirect(url_for('login'))
 
     data = load_data()
     output = StringIO()
     writer = csv.writer(output)
     writer.writerow(['Task', 'Volunteer', 'Email', 'Match Score', 'Reasons', 'Status'])
-
     for match in data["matches"]:
-        writer.writerow([
-            match["task_name"],
-            match["volunteer_name"],
-            match["volunteer_email"],
-            f"{match['match_score']}%",
-            match["reasons"],
-            match["status"]
-        ])
-
-    return Response(
-        output.getvalue(),
-        mimetype="text/csv",
-        headers={"Content-disposition": "attachment; filename=matches.csv"}
-    )
+        writer.writerow([match["task_name"], match["volunteer_name"], match["volunteer_email"], f"{match['match_score']}%", match["reasons"], match["status"]])
+    return Response(output.getvalue(), mimetype="text/csv", headers={"Content-disposition": "attachment; filename=matches.csv"})
 
 @app.route('/logout')
 def logout():
