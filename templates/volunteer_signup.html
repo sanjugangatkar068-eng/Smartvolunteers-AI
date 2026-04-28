@@ -1,67 +1,45 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SmartVolunteers - Volunteer Signup</title>
-    <style>
-        body { font-family: Arial, sans-serif; background: #f5f5f5; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 1rem; }
-       .signup-container { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); width: 100%; max-width: 500px; }
-        h1 { text-align: center; color: #333; margin-bottom: 1.5rem; }
-       .error { background: #fee; color: #c33; padding: 0.75rem; border-radius: 4px; margin-bottom: 1rem; border: 1px solid #fcc; }
-        label { display: block; margin-bottom: 0.5rem; color: #333; font-weight: bold; }
-        input, select { width: 100%; padding: 0.75rem; margin-bottom: 1rem; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; font-size: 1rem; }
-        button { width: 100%; padding: 0.75rem; background: #16a34a; color: white; border: none; border-radius: 4px; font-size: 1rem; cursor: pointer; font-weight: bold; }
-        button:hover { background: #15803d; }
-       .links { text-align: center; margin-top: 1rem; }
-       .links a { color: #2563eb; text-decoration: none; }
-        small { color: #666; font-size: 0.85rem; display: block; margin-top: -0.5rem; margin-bottom: 1rem; }
-    </style>
-</head>
-<body>
-    <div class="signup-container">
-        <h1>Volunteer Signup</h1>
-
-        {% if error %}
-        <div class="error">{{ error }}</div>
-        {% endif %}
-
-        <form method="POST" action="{{ url_for('volunteer_signup') }}">
-            <label for="name">Full Name</label>
-            <input type="text" id="name" name="name" placeholder="John Doe" required>
-
-            <label for="email">Email</label>
-            <input type="email" id="email" name="email" placeholder="john@example.com" required>
-
-            <label for="password">Password</label>
-            <input type="password" id="password" name="password" placeholder="Create a password" required>
-
-            <label for="skills">Skills</label>
-            <input type="text" id="skills" name="skills" placeholder="teaching, driving, cooking" required>
-            <small>Separate multiple skills with commas</small>
-
-            <label for="location">Location</label>
-            <input type="text" id="location" name="location" placeholder="Bengaluru" required>
-
-            <label for="availability">Availability</label>
-            <select id="availability" name="availability" required>
-                <option value="">Select availability</option>
-                <option value="flexible">Flexible</option>
-                <option value="weekends">Weekends only</option>
-                <option value="weekdays">Weekdays only</option>
-                <option value="evenings">Evenings only</option>
-            </select>
-
-            <label for="languages">Languages</label>
-            <input type="text" id="languages" name="languages" placeholder="English, Hindi" required>
-            <small>Separate multiple languages with commas</small>
-
-            <button type="submit">Sign Up as Volunteer</button>
-        </form>
-
-        <div class="links">
-            <p>Already have an account? <a href="{{ url_for('login') }}">Login →</a></p>
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body p-5">
+                <h3 class="text-center mb-4">Volunteer Signup</h3>
+                <form method="POST">
+                    <div class="mb-3">
+                        <label class="form-label">Full Name</label>
+                        <input type="text" class="form-control" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" name="email" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Password</label>
+                        <input type="password" class="form-control" name="password" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Skills (comma separated)</label>
+                        <input type="text" class="form-control" name="skills" placeholder="teaching, coding, design" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Location</label>
+                        <input type="text" class="form-control" name="location" placeholder="Bengaluru" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Availability</label>
+                        <select class="form-select" name="availability" required>
+                            <option value="Flexible">Flexible</option>
+                            <option value="Weekends">Weekends Only</option>
+                            <option value="Weekdays">Weekdays Only</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-success w-100">Create Account</button>
+                </form>
+                <hr>
+                <p class="text-center mb-0">Already have an account? <a href="{{ url_for('login') }}">Login</a></p>
+            </div>
         </div>
     </div>
-</body>
-</html>
+</div>
+{% endblock %}
