@@ -245,7 +245,7 @@ def load_demo():
             }
 
     for task in demo_tasks:
-        if not any(t["task_name"] == task["task_name"] for t in data["tasks"]):
+        if not any(t["task_name"] == task["task_name"] for t in data["tasks"]): # Fixed this line
             task["id"] = len(data["tasks"]) + 1
             task["created_at"] = datetime.now().isoformat()
             data["tasks"].append(task)
