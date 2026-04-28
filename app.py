@@ -1,216 +1,290 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
+from flask import Flask, render_template, request, redirect, url_for, session, flash, Response
+import csv
+from io import StringIO
 
 app = Flask(__name__)
 app.secret_key = "smartvolunteers_secret_key_2024"
 
-# Use Render Disk for persistence. Falls back to local file for testing
-DATA_FILE = "/data/data.json" if os.path.exists("/data") else "data.json"
+# Render Free Tier - saves in project folder. Data resets on deploy/sleep.
+DATA_FILE = "data.json"
 
-# ---------- Data Handling ----------
 def load_data():
     try:
-        if not os.path.exists(DATA_FILE):
-            print(f"Creating new {DATA_FILE}")
-            default_data = {"volunteers": [], "tasks": [], "matches": []}
-            os.makedirs(os.path.dirname(DATA_FILE), exist_ok=True)
-            with open(DATA_FILE, "w") as f:
-                json.dump(default_data, f, indent=2)
-            return default_data
-        with open(DATA_FILE, "r") as f:
+        with open(DATA_FILE, 'r') as f:
             return json.load(f)
     except Exception as e:
         print(f"LOAD_DATA ERROR: {e}")
-        return {"volunteers": [], "tasks": [], "matches": []}
+        return {
+            "users": {
+                "admin@admin.com": {
+                    "password": generate_password_hash("admin123"),
+                    "role": "admin",
+                    "name": "Admin"
+                }
+            },
+            "volunteers": [],
+            "tasks": [],
+            "matches": []
+        }
 
 def save_data(data):
     try:
-        os.makedirs(os.path.dirname(DATA_FILE), exist_ok=True)
-        with open(DATA_FILE, "w") as f:
+        with open(DATA_FILE, 'w') as f:
             json.dump(data, f, indent=2)
         print("DATA SAVED SUCCESS")
     except Exception as e:
         print(f"SAVE_DATA ERROR: {e}")
 
-# ---------- AI Matching Logic ----------
-def calculate_match_score(volunteer, task):
-    score = 0
-    reasons = []
-    v_skills = [s.lower().strip() for s in volunteer.get("skills", [])]
-    t_skills = [s.lower().strip() for s in task.get("skills_required", [])]
-    skill_matches = len(set(v_skills) & set(t_skills))
-    if skill_matches > 0 and len(t_skills) > 0:
-        score += 40 * (skill_matches / len(t_skills))
-        reasons.append(f"{skill_matches} matching skills")
-    if volunteer.get("location", "").lower().strip() == task.get("location", "").lower().strip():
-        score += 30
-        reasons.append("Same location")
-    if volunteer.get("availability") == "flexible":
-        score += 20
-        reasons.append("Flexible schedule")
-    if task.get("priority") == "High":
-        score += 10
-        reasons.append("High priority task")
-    return min(round(score), 100), ", ".join(reasons)
+def ai_match_volunteers():
+    data = load_data()
+    volunteers = data["volunteers"]
+    tasks = data["tasks"]
+    matches = []
 
-@app.route("/")
+    for task in tasks:
+        task_skills = set(skill.lower().strip() for skill in task["skills_required"])
+
+        for volunteer in volunteers:
+            vol_skills = set(skill.lower().strip() for skill in volunteer["skills"])
+
+            # Calculate match score
+            skill_match = len(task_skills & vol_skills) / len(task_skills) if task_skills else 0
+            location_match = 1.0 if volunteer["location"].lower() == task["location"].lower() else 0.3
+            availability_match = 1.0 if volunteer["availability"] == "Flexible" else 0.7
+            priority_bonus = 0.2 if task["priority"] == "High" else 0.1
+
+            total_score = (skill_match * 0.5 + location_match * 0.3 + availability_match * 0.1 + priority_bonus) * 100
+
+            if total_score > 30: # Only match if >30%
+                reasons = []
+                if skill_match > 0:
+                    reasons.append(f"{len(task_skills & vol_skills)} matching skills")
+                if location_match == 1.0:
+                    reasons.append("Same location")
+                if volunteer["availability"] == "Flexible":
+                    reasons.append("Flexible schedule")
+
+                matches.append({
+                    "id": len(matches) + 1,
+                    "task_id": task["id"],
+                    "volunteer_id": volunteer["id"],
+                    "task_name": task["task_name"],
+                    "volunteer_name": volunteer["name"],
+                    "volunteer_email": volunteer["email"],
+                    "match_score": round(total_score, 1),
+                    "reasons": ", ".join(reasons) if reasons else "Partial match",
+                    "status": "Pending",
+                    "created_at": datetime.now().isoformat()
+                })
+
+    data["matches"] = sorted(matches, key=lambda x: x["match_score"], reverse=True)
+    save_data(data)
+    return len(matches)
+
+@app.route('/')
 def home():
-    return redirect(url_for("login"))
+    if 'user' not in session:
+        return redirect(url_for('login'))
+    if session['user']['role'] == 'admin':
+        return redirect(url_for('admin_dashboard'))
+    else:
+        return redirect(url_for('volunteer_dashboard'))
 
-@app.route("/admin")
-def admin_login():
-    session["user"] = "admin"
-    session["role"] = "admin"
-    session["name"] = "Admin"
-    return redirect(url_for("dashboard"))
-
-@app.route("/login", methods=["GET", "POST"])
+@app.route('/login', methods=['GET', 'POST'])
 def login():
-    if request.method == "POST":
-        email = request.form.get("email", "").strip().lower()
-        password = request.form.get("password", "").strip()
-        print(f"LOGIN ATTEMPT: email='{email}'")
-
-        if password == "admin123" and email in ["admin", "admin@admin.com"]:
-            print("ADMIN LOGIN SUCCESS")
-            session["user"] = "admin"
-            session["role"] = "admin"
-            session["name"] = "Admin"
-            return redirect(url_for("dashboard"))
-
+    if request.method == 'POST':
+        email = request.form['email']
+        password = request.form['password']
         data = load_data()
-        for volunteer in data["volunteers"]:
-            if volunteer["email"].lower() == email:
-                if check_password_hash(volunteer.get("password_hash", ""), password):
-                    session["user"] = volunteer["id"]
-                    session["role"] = "volunteer"
-                    session["name"] = volunteer["name"]
-                    print(f"VOLUNTEER LOGIN SUCCESS: {email}")
-                    return redirect(url_for("dashboard"))
-                break
 
-        return render_template("login.html", error="Invalid email or password")
-    return render_template("login.html")
+        if email in data["users"] and check_password_hash(data["users"][email]["password"], password):
+            session['user'] = {
+                "email": email,
+                "role": data["users"][email]["role"],
+                "name": data["users"][email]["name"]
+            }
+            flash('Login successful!', 'success')
+            return redirect(url_for('home'))
+        else:
+            flash('Invalid email or password', 'error')
 
-@app.route("/logout")
-def logout():
-    session.clear()
-    return redirect(url_for("login"))
+    return render_template('login.html')
 
-@app.route("/volunteer_signup", methods=["GET"])
-def volunteer_signup_page():
-    return render_template("volunteer_signup.html")
-
-@app.route("/volunteer_signup", methods=["POST"])
+@app.route('/volunteer_signup', methods=['GET', 'POST'])
 def volunteer_signup():
-    try:
+    if request.method == 'POST':
         data = load_data()
-        email = request.form.get("email", "").strip().lower()
-        name = request.form.get("name", "").strip()
-        password = request.form.get("password", "")
+        email = request.form['email']
 
-        print(f"SIGNUP ATTEMPT: name={name}, email={email}")
+        if email in data["users"]:
+            flash('Email already registered', 'error')
+            return render_template('volunteer_signup.html')
 
-        if not email or not name or not password:
-            return render_template("volunteer_signup.html", error="All fields are required")
-
-        for v in data["volunteers"]:
-            if v["email"].lower() == email:
-                return render_template("volunteer_signup.html", error="Email already registered")
-
-        new_volunteer = {
-            "id": f"v_{len(data['volunteers']) + 1}",
-            "name": name,
-            "email": email,
-            "password_hash": generate_password_hash(password),
-            "skills": [s.strip() for s in request.form.get("skills", "").split(",") if s.strip()],
-            "location": request.form.get("location", "").strip(),
-            "availability": request.form.get("availability", "").strip(),
-            "languages": [l.strip() for l in request.form.get("languages", "").split(",") if l.strip()]
+        # Create user account
+        data["users"][email] = {
+            "password": generate_password_hash(request.form['password']),
+            "role": "volunteer",
+            "name": request.form['name']
         }
-        data["volunteers"].append(new_volunteer)
+
+        # Create volunteer profile
+        volunteer = {
+            "id": len(data["volunteers"]) + 1,
+            "name": request.form['name'],
+            "email": email,
+            "skills": [s.strip() for s in request.form['skills'].split(',')],
+            "location": request.form['location'],
+            "availability": request.form['availability']
+        }
+        data["volunteers"].append(volunteer)
         save_data(data)
 
-        # Auto-login the new volunteer
-        session["user"] = new_volunteer["id"]
-        session["role"] = "volunteer"
-        session["name"] = new_volunteer["name"]
-        print(f"SIGNUP + AUTO LOGIN: {email}")
-        return redirect(url_for("dashboard"))
+        # Auto login
+        session['user'] = {"email": email, "role": "volunteer", "name": request.form['name']}
+        flash('Signup successful! Welcome to SmartVolunteers', 'success')
+        return redirect(url_for('volunteer_dashboard'))
 
-    except Exception as e:
-        print(f"SIGNUP ERROR: {str(e)}")
-        return render_template("volunteer_signup.html", error=f"Signup failed: {str(e)}")
+    return render_template('volunteer_signup.html')
 
-@app.route("/dashboard")
-def dashboard():
-    if "user" not in session:
-        return redirect(url_for("login"))
+@app.route('/admin')
+def admin_dashboard():
+    if 'user' not in session or session['user']['role']!= 'admin':
+        return redirect(url_for('login'))
+
     data = load_data()
-    if session.get("role") == "admin":
-        stats = {"total_volunteers": len(data["volunteers"]), "total_tasks": len(data["tasks"]), "active_matches": len(data.get("matches", []))}
-        return render_template("index.html", stats=stats, tasks=data["tasks"], matches=data.get("matches", []), user_role=session.get("role"), user_name=session.get("name"))
-    else:
-        volunteer_id = session["user"]
-        my_matches = [m for m in data.get("matches", []) if m["volunteer_id"] == volunteer_id]
-        stats = {"total_tasks": len(data["tasks"]), "my_matches": len(my_matches), "active_matches": len(my_matches)}
-        return render_template("volunteer_dashboard.html", stats=stats, tasks=data["tasks"], matches=my_matches, user_role=session.get("role"), user_name=session.get("name"))
+    stats = {
+        "total_volunteers": len(data["volunteers"]),
+        "total_tasks": len(data["tasks"]),
+        "active_matches": len([m for m in data["matches"] if m["status"] == "Pending"]),
+        "total_matches": len(data["matches"])
+    }
+    return render_template('index.html', stats=stats, tasks=data["tasks"], matches=data["matches"], user=session['user'])
 
-@app.route("/create_task", methods=["POST"])
+@app.route('/volunteer_dashboard')
+def volunteer_dashboard():
+    if 'user' not in session or session['user']['role']!= 'volunteer':
+        return redirect(url_for('login'))
+
+    data = load_data()
+    user_email = session['user']['email']
+
+    # Get volunteer's matches
+    my_matches = [m for m in data["matches"] if m["volunteer_email"] == user_email]
+    # Get all open tasks
+    open_tasks = [t for t in data["tasks"] if t["volunteers_needed"] > 0]
+
+    return render_template('volunteer_dashboard.html',
+                         matches=my_matches,
+                         tasks=open_tasks,
+                         user=session['user'])
+
+@app.route('/create_task', methods=['POST'])
 def create_task():
-    if "user" not in session or session.get("role")!= "admin":
-        return redirect(url_for("login"))
-    data = load_data()
-    new_task = {"id": f"t_{len(data['tasks']) + 1}", "title": request.form.get("task_name", "").strip(), "description": request.form.get("task_name", "").strip(), "skills_required": [s.strip() for s in request.form.get("skills", "").split(",") if s.strip()], "location": request.form.get("location", "").strip(), "priority": request.form.get("priority", "").strip(), "volunteers_needed": int(request.form.get("volunteers_needed", 1)), "deadline": request.form.get("deadline", "").strip(), "status": "open"}
-    data["tasks"].append(new_task)
-    save_data(data)
-    flash("Task created successfully!")
-    return redirect(url_for("dashboard"))
+    if 'user' not in session or session['user']['role']!= 'admin':
+        return redirect(url_for('login'))
 
-@app.route("/load_demo", methods=["POST"])
+    data = load_data()
+    task = {
+        "id": len(data["tasks"]) + 1,
+        "task_name": request.form['task_name'],
+        "skills_required": [s.strip() for s in request.form['skills_required'].split(',')],
+        "location": request.form['location'],
+        "priority": request.form['priority'],
+        "volunteers_needed": int(request.form['volunteers_needed']),
+        "deadline": request.form['deadline'],
+        "created_at": datetime.now().isoformat()
+    }
+    data["tasks"].append(task)
+    save_data(data)
+    flash('Task created successfully!', 'success')
+    return redirect(url_for('admin_dashboard'))
+
+@app.route('/run_ai_match')
+def run_ai_match():
+    if 'user' not in session or session['user']['role']!= 'admin':
+        return redirect(url_for('login'))
+
+    count = ai_match_volunteers()
+    flash(f'AI matching complete! Found {count} matches.', 'success')
+    return redirect(url_for('admin_dashboard'))
+
+@app.route('/load_demo')
 def load_demo():
-    if "user" not in session or session.get("role")!= "admin":
-        return redirect(url_for("login"))
-    demo_data = {"volunteers": [{"id": "v_1", "name": "Priya Sharma", "email": "priya@example.com", "password_hash": generate_password_hash("pass123"), "skills": ["environment", "driving", "hindi"], "location": "Bengaluru", "availability": "flexible", "languages": ["English", "Hindi"]}, {"id": "v_2", "name": "Rahul Verma", "email": "rahul@example.com", "password_hash": generate_password_hash("pass123"), "skills": ["teaching", "english", "hindi"], "location": "Bengaluru", "availability": "weekends", "languages": ["English", "Hindi"]}, {"id": "v_3", "name": "Alex Kumar", "email": "alex@example.com", "password_hash": generate_password_hash("pass123"), "skills": ["logistics", "management", "english"], "location": "Bengaluru", "availability": "flexible", "languages": ["English"]}], "tasks": [{"id": "t_1", "title": "Beach Cleanup Drive", "description": "Clean up city beach", "skills_required": ["environment", "driving"], "location": "Bengaluru", "priority": "High", "volunteers_needed": 10, "deadline": "2025-12-31", "status": "open"}, {"id": "t_2", "title": "Food Drive Distribution", "description": "Distribute food packets", "skills_required": ["logistics", "management"], "location": "Bengaluru", "priority": "Medium", "volunteers_needed": 5, "deadline": "2025-12-25", "status": "open"}, {"id": "t_3", "title": "Teaching Assistant", "description": "Help teach kids", "skills_required": ["teaching", "hindi"], "location": "Bengaluru", "priority": "Medium", "volunteers_needed": 3, "deadline": "2025-12-20", "status": "open"}], "matches": []}
-    save_data(demo_data)
-    flash("Demo data loaded successfully!")
-    return redirect(url_for("dashboard"))
+    if 'user' not in session or session['user']['role']!= 'admin':
+        return redirect(url_for('login'))
 
-@app.route("/run_match", methods=["POST"])
-def run_match():
-    if "user" not in session or session.get("role")!= "admin":
-        return redirect(url_for("login"))
     data = load_data()
-    matches = []
-    for task in data["tasks"]:
-        best_match = None
-        best_score = 0
-        best_reason = ""
-        for volunteer in data["volunteers"]:
-            score, reason = calculate_match_score(volunteer, task)
-            if score > best_score:
-                best_score = score
-                best_match = volunteer
-                best_reason = reason
-        if best_match:
-            matches.append({"task_id": task.get("id", "unknown"), "task_title": task.get("title", "Untitled Task"), "volunteer_id": best_match.get("id", "unknown"), "volunteer_name": best_match.get("name", "Unknown"), "match_score": best_score, "reason": best_reason})
-    data["matches"] = matches
+
+    # Demo volunteers
+    demo_volunteers = [
+        {"name": "Priya Sharma", "email": "priya@example.com", "skills": ["teaching", "communication", "hindi"], "location": "Bengaluru", "availability": "Flexible"},
+        {"name": "Rahul Kumar", "email": "rahul@example.com", "skills": ["coding", "python", "web development"], "location": "Bengaluru", "availability": "Weekends"},
+        {"name": "Anjali Patel", "email": "anjali@example.com", "skills": ["design", "photoshop", "social media"], "location": "Mumbai", "availability": "Flexible"}
+    ]
+
+    # Demo tasks
+    demo_tasks = [
+        {"task_name": "Teach English to Kids", "skills_required": ["teaching", "communication"], "location": "Bengaluru", "priority": "High", "volunteers_needed": 2, "deadline": (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d')},
+        {"task_name": "Build NGO Website", "skills_required": ["coding", "web development"], "location": "Bengaluru", "priority": "Medium", "volunteers_needed": 1, "deadline": (datetime.now() + timedelta(days=45)).strftime('%Y-%m-%d')},
+        {"task_name": "Social Media Campaign", "skills_required": ["design", "social media"], "location": "Mumbai", "priority": "High", "volunteers_needed": 1, "deadline": (datetime.now() + timedelta(days=20)).strftime('%Y-%m-%d')}
+    ]
+
+    # Add demo data if not exists
+    for vol in demo_volunteers:
+        if not any(v["email"] == vol["email"] for v in data["volunteers"]):
+            vol["id"] = len(data["volunteers"]) + 1
+            data["volunteers"].append(vol)
+            data["users"][vol["email"]] = {
+                "password": generate_password_hash("demo123"),
+                "role": "volunteer",
+                "name": vol["name"]
+            }
+
+    for task in demo_tasks:
+        if not any(t["task_name"] == task["task_name"] for t in data["tasks"]):
+            task["id"] = len(data["tasks"]) + 1
+            task["created_at"] = datetime.now().isoformat()
+            data["tasks"].append(task)
+
     save_data(data)
-    flash(f"AI matching complete! Found {len(matches)} matches.")
-    return redirect(url_for("dashboard"))
+    flash('Demo data loaded! 3 volunteers + 3 tasks added.', 'success')
+    return redirect(url_for('admin_dashboard'))
 
-@app.route("/export_csv")
-def export_csv():
-    if "user" not in session:
-        return redirect(url_for("login"))
+@app.route('/export_matches')
+def export_matches():
+    if 'user' not in session or session['user']['role']!= 'admin':
+        return redirect(url_for('login'))
+
     data = load_data()
-    csv_data = "Task,Volunteer,Match Score,Reason\n"
-    for match in data.get("matches", []):
-        csv_data += f"{match['task_title']},{match['volunteer_name']},{match['match_score']}%,{match['reason']}\n"
-    return csv_data, 200, {"Content-Type": "text/csv", "Content-Disposition": "attachment; filename=smartvolunteers_matches.csv"}
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['Task', 'Volunteer', 'Email', 'Match Score', 'Reasons', 'Status'])
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    for match in data["matches"]:
+        writer.writerow([
+            match["task_name"],
+            match["volunteer_name"],
+            match["volunteer_email"],
+            f"{match['match_score']}%",
+            match["reasons"],
+            match["status"]
+        ])
+
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-disposition": "attachment; filename=matches.csv"}
+    )
+
+@app.route('/logout')
+def logout():
+    session.pop('user', None)
+    flash('Logged out successfully', 'success')
+    return redirect(url_for('login'))
+
+if __name__ == '__main__':
+    app.run(debug=True)
